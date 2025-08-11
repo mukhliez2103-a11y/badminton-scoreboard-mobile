@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Badminton Scoreboard – Classic 30 (Full-Height Score)</title>
+  <style>
+    :root{--bg:#000000;--panel:#ffffff;--ink:#111111;--mut:#c6c6c6;--accent:#40c173;--btn:#2e2e2e;--btnText:#f2f2f2;--text:#ffffff;--serveText:#ffffff;--timeLabelText:#ffffff;--timerText:#ffffff;--timerBg:#000000;--scoreFontSize:80px;--playerFontSize:28px;--timerFontSize:24px;--serveFontSize:20px;--buttonsFontSize:16px;--winnerFontSize:32px}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{display:flex;flex-direction:column;height:100%}
+
+    /* SETTINGS (top-right) */
+    .settings-btn{position:fixed;top:14px;right:16px;background:var(--panel);color:var(--ink);border:0;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer;z-index:10}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:20}
+    .modal .card{background:#ffffff;color:#111111;border-radius:14px;padding:18px;min-width:340px;max-width:92vw}
+    .modal .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+    .modal label{font-weight:700}
+    .modal input[type="text"], .modal input[type="color"]{width:100%;padding:8px;border-radius:8px;border:1px solid #ddd}
+    .modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
+    .modal button{background:#333;color:#fff;border:0;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer}
+
+    /* LAYOUT */
+    .topbar{display:grid;grid-template-columns:1fr 1fr auto 1fr 1fr;gap:22px;padding:18px 26px}
+    .pbox{background:var(--panel);color:var(--ink);border-radius:6px;text-align:center;font-weight:800;font-size:28px;padding:12px;border:none}
+    .vs{align-self:center;justify-self:center;font-weight:900;font-size:42px;letter-spacing:2px;color:#ffffff !important}
+
+    .main{display:grid;grid-template-columns:1fr 420px 1fr;gap:28px;align-items:stretch;flex:1;padding:0 26px 26px}
+
+    .bigScore{
+      position:relative;
+      background:var(--panel);
+      color:var(--ink);
+      border-radius:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      user-select:none;
+      cursor:pointer;
+      width:100%;
+      height:100%;
+      min-height:320px;
+      overflow:hidden;
+    }
+    .scoreValue{
+      font-weight:900;
+      line-height:1;
+      white-space:nowrap;
+      transform-origin:center;
+    }
+    .overBtns{
+      position:absolute;
+      left:50%;
+      bottom:10px;
+      transform:translateX(-50%);
+      display:flex;
+      gap:10px;
+      z-index:2;
+    }
+    .overBtns button{
+      background:#3b3b3b;
+      color:#fff;
+      border:0;
+      border-radius:10px;
+      padding:10px 14px;
+      font-size:18px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .center{display:flex;flex-direction:column;align-items:center;gap:14px;justify-content:center}
+    .serveLabel{font-weight:900;letter-spacing:2px;margin-top:2px}
+    .miniRow{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;width:100%;align-items:center}
+    .mini{background:var(--panel);color:var(--ink);border-radius:10px;padding:6px 0;text-align:center;font-size:96px;font-weight:900;min-width:140px;cursor:pointer;user-select:none}
+    .pill{height:20px;background:#3a3a3a;border-radius:10px;opacity:.7;margin-top:6px;width:110px;margin-inline:auto}
+
+    .swap{display:inline-block;background:var(--panel);color:var(--ink);border-radius:10px;padding:6px 12px;font-weight:900;cursor:pointer}
+
+    .infoRow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+    .infoRow button{background:var(--panel);color:var(--ink);border:0;border-radius:10px;padding:10px 14px;font-size:16px;font-weight:800;cursor:pointer}
+
+    .timerWrap{width:100%;}
+    .timeLabel{font-weight:800;letter-spacing:2px;text-align:center;margin-bottom:8px}
+    .timer{background:#3a3a3a;border-radius:10px;text-align:center;padding:14px 0;font-size:36px;font-weight:900;letter-spacing:2px}
+    .tbtns{display:flex;gap:10px;justify-content:center;margin-top:6px;flex-wrap:wrap}
+    .tbtns button{background:var(--btn);color:var(--btnText);border:0;border-radius:10px;padding:10px 14px;font-size:14px;cursor:pointer}
+
+    .clean .topbar,.clean .tbtns{display:none}
+
+    /* shuttle icon */
+    .shuttle{width:24px;vertical-align:-4px;margin-right:8px}
+
+    @media (max-width:1200px){
+      .main{grid-template-columns:1fr;gap:18px}
+    }
+  </style>
+<style>
+/* === PATCH: Align player-name widths with score panels === */
+.topbar{
+  display:grid !important;
+  grid-template-columns:1fr 420px 1fr !important; /* match .main */
+  gap:28px !important; /* match .main gap */
+  padding:18px 26px !important;
+}
+.teamCol{
+  display:grid !important;
+  grid-template-rows:auto auto !important;
+  gap:8px !important;
+}
+.vs{
+  align-self:center !important;
+  justify-self:center !important;
+  font-weight:900 !important;
+  font-size:42px !important;
+  letter-spacing:2px !important;
+  color:#ffffff !important;
+}
+.pbox{ width:100% !important; box-sizing:border-box !important; }
+</style>
+<style>
+/* === PATCH: Settings button style (non-fixed) === */
+.settings-btn{
+  background:var(--panel);
+  color:var(--ink);
+  border:0;
+  border-radius:10px;
+  padding:8px 12px;
+  font-weight:800;
+  cursor:pointer;
+  position: static !important;
+}
+</style>
+<style>
+/* === PATCH: Visually remove RIGHT SERVE + Server + Receiver + miniRow content, preserve spacing === */
+#boxSide, #boxServer, #boxReceiver{ display:none !important; }
+/* keep row height so scores stay large */
+/* hide inner content completely */
+</style>
+<style>
+/* === PATCH: Keep serve 1st/2nd/- visible === */
+.miniRow { display: grid; }
+</style>
+<style>#winPoints{background:var(--panel);color:var(--ink);border:none;padding:10px;border-radius:10px;font-weight:800}</style>
+<style>.bigScore.winner{outline:6px solid var(--accent);outline-offset:-6px}</style>
+<style>
+/* === WINNER MODAL STYLES === */
+.winnerModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50}
+.winnerBackdrop{position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(2px)}
+.winnerCard{position:relative;background:var(--panel);color:var(--ink);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.4);padding:22px 26px;min-width:300px;max-width:90%;text-align:center;z-index:1}
+.crownWrap{display:flex;justify-content:center;margin-top:-14px;margin-bottom:6px}
+.crown{filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));}
+.winnerTitle{margin:6px 0 4px 0;font-size:28px;letter-spacing:0.5px}
+.winnerName{font-weight:900;font-size:24px;margin-bottom:14px}
+.winnerActions button{background:var(--btn);color:var(--btnText);border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
+</style>
+<style>
+
+/* === FIXED PATCH: enforce custom colors for serve/time/timer === */
+.serveLabel, .mini, .pill { color: var(--serveText) !important; fill: var(--serveText) !important; }
+.mini, .pill { border-color: var(--serveText) !important; background-color: transparent !important; }
+.timeLabel { color: var(--timeLabelText) !important; }
+.timer { 
+  color: var(--timerText) !important; 
+  background-color: var(--timerBg) !important; 
+}
+</style>
+<style>
+
+/* === PATCH: font size variables (fixed selectors) === */
+.score, .scoreValue { font-size: var(--scoreFontSize) !important; }
+.playerName { font-size: var(--playerFontSize) !important; }
+.timeLabel, .timer { font-size: var(--timerFontSize) !important; }
+.serveLabel { font-size: var(--serveFontSize) !important; }
+button, .ctrl button { font-size: var(--buttonsFontSize) !important; }
+.winnerPopup, .winnerPopup * { font-size: var(--winnerFontSize) !important; }
+</style>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+
+
+<style>
+/* ===== Mobile layout fix ===== */
+@media (max-width: 900px){
+  .main{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    padding: 0 12px 12px !important;
+    align-items: stretch !important;
+  }
+  .topbar{
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+  .pbox{ font-size: 22px !important; padding: 10px !important; }
+  .center{
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 14px !important;
+  }
+  .bigScore{ min-height: 50vh !important; }
+  .mini{ font-size: 56px !important; min-width: 100px !important; }
+  .overBtns{ bottom: 6px !important; }
+  .tbtns button{ font-size: 14px !important; padding: 8px 12px !important; }
+}
+
+/* Make center column flexible even on narrow screens */
+.main{
+  grid-template-columns: minmax(0,1fr) minmax(0,420px) minmax(0,1fr);
+}
+.center{ max-width: 420px; width: 100%; margin: 0 auto; }
+</style>
+
+
+<style>
+/* ===== Mobile layout fix v2 (tighter on small phones) ===== */
+@media (max-width: 900px){
+  /* Stack into single column */
+  .main{
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    padding: 0 12px 12px !important;
+    align-items: stretch !important;
+  }
+  /* Topbar: stack names full width */
+  .topbar{
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+  .pbox{ font-size: 20px !important; padding: 10px !important; }
+
+  /* Center column flexible */
+  .center{
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 14px !important;
+  }
+
+  /* Score cards: reduce minimum height for very small screens */
+  .bigScore{
+    min-height: 38vh !important; /* was 50vh */
+  }
+  /* Place overlay buttons below score on mobile to avoid overlap */
+  .overBtns{
+    position: static !important;
+    transform: none !important;
+    margin-top: 8px !important;
+    justify-content: center !important;
+  }
+
+  /* Serve minis smaller */
+  .mini{ font-size: 44px !important; min-width: 88px !important; padding: 4px 0 !important; }
+  .serveLabel{ margin-top: 0 !important; }
+
+  /* Timer & controls */
+  .timer{ padding: 10px 0 !important; font-size: 28px !important; }
+  .tbtns{ gap: 8px !important; padding: 0 4px !important; }
+  .tbtns button{
+    flex: 1 1 calc(50% - 8px) !important; /* 2 per row */
+    min-width: 140px !important;
+    font-size: 14px !important;
+    padding: 8px 10px !important;
+  }
+}
+
+/* Make center column flexible even on narrow screens (desktop fallback) */
+.main{
+  grid-template-columns: minmax(0,1fr) minmax(0,420px) minmax(0,1fr);
+}
+.center{ max-width: 420px; width: 100%; margin: 0 auto; }
+
+/* Ensure score text doesn't overflow width */
+.scoreValue{ max-width: 100%; display: inline-block; }
+</style>
+
+</head>
+<body>
+  <div class="wrap" id="app">
+    <div class="topbar">
+  <div class="teamCol">
+    <input class="pbox" id="p1" value="PLAYER 1" />
+    <input class="pbox" id="p2" value="PLAYER 2" />
+  </div>
+  <div class="vs">VS</div>
+  <div class="teamCol">
+    <input class="pbox" id="p3" value="PLAYER 3" />
+    <input class="pbox" id="p4" value="PLAYER 4" />
+  </div>
+</div>
+
+    <div class="main">
+      <!-- LEFT SCORE full-height -->
+      <div class="bigScore" id="scoreL" title="Klik = +1 • Ctrl/Cmd+Klik = −1">
+        <span class="scoreValue" id="scoreLVal">0</span>
+        <div class="overBtns">
+          <button id="btnMinusL">-1</button>
+          <button id="btnPlusL">+1</button>
+        </div>
+      </div>
+
+      <div class="center">
+        <div class="miniRow">
+          <div style="text-align:center">
+            <div class="serveLabel">SERVE</div>
+            <div class="mini" id="stL">1st</div>
+            <div class="pill"></div>
+          </div>
+          <div class="swap" id="swapMid" title="Swap Sides">↔</div>
+          <div style="text-align:center">
+            <div class="serveLabel">SERVE</div>
+            <div class="mini" id="stR">1st</div>
+            <div class="pill"></div>
+          </div>
+        </div>
+        <div class="infoRow">
+          <button id="boxSide">RIGHT SERVE</button>
+        </div>
+        <div class="infoRow">
+          <button id="boxServer"><svg class="shuttle" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M6 50l22-8 8-22-22 8L6 50z" fill="#fff"/><path d="M30 20l8 8M26 26l8 8" stroke="#000" stroke-width="3"/></svg><span id="serverName">PLAYER 1</span></button>
+          <button id="boxReceiver"><span id="receiverName">PLAYER 3</span></button>
+        </div>
+        <div class="timeLabel">TIME</div>
+        <div class="timer" id="timer">00:00.00</div>
+        <div class="tbtns">
+<button id="installBtn" style="display:none">Install App</button>
+          <button id="tStart">Start/Pause (T)</button>
+          <button id="tReset">Reset Timer (Y)</button>
+          <button id="resetPoints">Reset Points</button>
+        </div>
+<button class="settings-btn" id="btnSettings" style="position:static;margin-top:8px">⚙️ Settings</button>
+
+      </div>
+
+      <!-- RIGHT SCORE full-height -->
+      <div class="bigScore" id="scoreR" title="Klik = +1 • Ctrl/Cmd+Klik = −1">
+        <span class="scoreValue" id="scoreRVal">0</span>
+        <div class="overBtns">
+          <button id="btnMinusR">-1</button>
+          <button id="btnPlusR">+1</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal" id="settingsModal">
+    <div class="card">
+      <h3 style="margin-top:0">Settings</h3>
+      <div class="row">
+        <label>Background</label>
+        <input type="color" id="bgColor" value="#000000"/>
+        <label>Box/Panel</label>
+        <input type="color" id="boxColor" value="#ffffff"/>
+        <label>Text Color</label>
+        <input type="color" id="textColor" value="#ffffff"/>
+      </div>
+      <div class="row">
+        <label>Player 1</label>
+        <input type="text" id="name1" />
+        <label>Player 2</label>
+        <input type="text" id="name2" />
+        <label>Player 3</label>
+        <input type="text" id="name3" />
+        <label>Player 4</label>
+        <input type="text" id="name4" />
+      </div>
+        <div class="row">
+    <label>Winning Points</label>
+    <select id="winPoints">
+      <option value="21">21 Points</option>
+      <option value="30">30 Points</option>
+      <option value="42">42 Points</option>
+    </select>
+  </div>
+  <div class="row">
+  <label>Serve Text</label>
+  <input type="color" id="serveColor" value="#ffffff"/>
+  <label>Time Label</label>
+  <input type="color" id="timeLabelColor" value="#ffffff"/>
+  <label>Timer Text</label>
+  <input type="color" id="timerColor" value="#ffffff"/>
+  <label>Timer Box</label>
+  <input type="color" id="timerBgColor" value="#000000"/>
+</div>
+
+<div class="row">
+  <label>Score Font Size</label>
+  <input type="number" id="scoreFontSize" min="10" max="200" value="80">
+  <label>Player Name Font Size</label>
+  <input type="number" id="playerFontSize" min="10" max="100" value="28">
+  <label>Timer Font Size</label>
+  <input type="number" id="timerFontSize" min="10" max="100" value="24">
+  <label>Serve Font Size</label>
+  <input type="number" id="serveFontSize" min="10" max="100" value="20">
+  <label>Buttons Font Size</label>
+  <input type="number" id="buttonsFontSize" min="10" max="100" value="16">
+  <label>Winner Popup Font Size</label>
+  <input type="number" id="winnerFontSize" min="10" max="100" value="32">
+</div>
+<div class="actions">
+        <button id="exportBtn">Export Settings</button>
+<button id="importBtn">Import Settings</button>
+<input type="file" id="importFile" accept="application/json" style="display:none" />
+<button id="defaultsBtn">Reset Default</button>
+        <button id="applyBtn">Apply</button>
+        <button id="closeBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const on = (el,ev,fn)=>el.addEventListener(ev,fn,{passive:true});
+
+    // ===== Manual state =====
+    const state = {
+      L:1, R:1,
+      serveTag:{L:'1st',R:'1st'},
+      serverIndex:0,
+      receiverIndex:2,
+      sideText:'RIGHT SERVE',
+      timer:{run:false,start:null,offset:0}
+    };
+    let winnerShown = false;
+    let WIN_POINTS = parseInt(localStorage.getItem('bdm_win_points')||'21',10);
+
+    function players(){ return [ $('p1').value, $('p2').value, $('p3').value, $('p4').value ]; }
+
+    function render(){
+      $('scoreLVal').textContent = state.L; $('scoreRVal').textContent = state.R;
+      $('stL').textContent = state.serveTag.L; $('stR').textContent = state.serveTag.R;
+      $('boxSide').textContent = state.sideText;
+      const ps = players();
+      $('serverName').textContent = ps[state.serverIndex]||'';
+      $('receiverName').textContent = ps[state.receiverIndex]||'';
+      $('name1').value = ps[0]; $('name2').value = ps[1]; $('name3').value = ps[2]; $('name4').value = ps[3];
+      $('scoreL').classList.toggle('winner', state.L>=WIN_POINTS);
+      $('scoreR').classList.toggle('winner', state.R>=WIN_POINTS);
+      fitAllScores();
+    }
+
+    // Fit score text to fill its box (height first, then width safeguard)
+    function fitScore(container, span){
+      if(!container || !span) return;
+      const h = container.clientHeight - 56;
+      let fs = Math.max(12, Math.floor(h * 0.78));
+      span.style.fontSize = fs + 'px';
+      const maxLoops = 60;
+      let loops = 0;
+      while(span.scrollWidth > container.clientWidth - 24 && loops < maxLoops){
+        fs -= 6;
+        if(fs <= 12) break;
+        span.style.fontSize = fs + 'px';
+        loops++;
+      }
+    }
+    function fitAllScores(){
+      fitScore($('scoreL'), $('scoreLVal'));
+      fitScore($('scoreR'), $('scoreRVal'));
+    }
+    window.addEventListener('resize', fitAllScores);
+
+    function cycleServeTag(side){
+      const order=['1st','2nd','-'];
+      const cur = state.serveTag[side];
+      const i = order.indexOf(cur);
+      const next = order[(i+1+order.length)%order.length];
+      state.serveTag[side] = next;
+      if(next !== '-'){
+        const other = side==='L'?'R':'L';
+        state.serveTag[other] = '-';
+      }
+    }
+
+    function nextPairedIndex(idx){ return (idx===0)?1 : (idx===1)?0 : (idx===2)?3 : 2; }
+
+    // Scores (manual)
+    on($('scoreL'),'pointerdown',(e)=>{ if(e.target.closest('.overBtns')) return; if(e.ctrlKey||e.metaKey){ if(state.L>0) state.L--; } else { if(state.L<WIN_POINTS) state.L++; } render(); });
+    on($('scoreR'),'pointerdown',(e)=>{ if(e.target.closest('.overBtns')) return; if(e.ctrlKey||e.metaKey){ if(state.R>0) state.R--; } else { if(state.R<WIN_POINTS) state.R++; } render(); });
+    on($('btnMinusL'),'pointerdown',()=>{ if(state.L>0) state.L--; render(); });
+    on($('btnPlusL'),'pointerdown',()=>{ if(state.L<WIN_POINTS) state.L++; render(); });
+    on($('btnMinusR'),'pointerdown',()=>{ if(state.R>0) state.R--; render(); });
+    on($('btnPlusR'),'pointerdown',()=>{ if(state.R<WIN_POINTS) state.R++; render(); });
+
+    // SERVE small boxes toggle 1st ↔ 2nd ↔ -
+    on($('stL'),'pointerdown',()=>{ cycleServeTag('L'); render(); });
+    on($('stR'),'pointerdown',()=>{ cycleServeTag('R'); render(); });
+
+    // Right/Left Serve (manual)
+    on($('boxSide'),'pointerdown',()=>{ state.sideText = state.sideText.includes('RIGHT')? 'LEFT SERVE':'RIGHT SERVE'; render(); });
+
+    // Player Serve / Receive Serve — cycle within side pairs only
+    on($('boxServer'),'pointerdown',()=>{ state.serverIndex = nextPairedIndex(state.serverIndex); render(); });
+    on($('boxReceiver'),'pointerdown',()=>{ state.receiverIndex = nextPairedIndex(state.receiverIndex); render(); });
+
+    // Timer
+    function formatTime(totalMs){
+      const msAll = Math.max(0, totalMs|0);
+      const s = Math.floor(msAll/1000);
+      const mm = String(Math.floor(s/60)).padStart(2,'0');
+      const ss = String(s%60).padStart(2,'0');
+      const ms = String(Math.floor((msAll%1000)/10)).padStart(2,'0');
+      return `${mm}:${ss}.${ms}`;
+    }
+    function updateTimer(){
+      let elapsed=state.timer.offset;
+      if(state.timer.run){ elapsed += Date.now()-state.timer.start; }
+      $('timer').textContent = formatTime(elapsed);
+    }
+    setInterval(updateTimer, 10);
+    on($('tStart'),'pointerdown',()=>{ if(!state.timer.run){ state.timer.run=true; state.timer.start=Date.now(); } else { state.timer.run=false; state.timer.offset += Date.now()-state.timer.start; } updateTimer(); });
+    on($('tReset'),'pointerdown',()=>{ state.timer.run=false; state.timer.start=null; state.timer.offset=0; updateTimer(); });
+
+    on($('resetPoints'),'pointerdown',()=>{ state.L=0; state.R=0; render(); });
+
+    // Swap ↔ (visual only)
+    on($('swapMid'),'pointerdown',()=>{
+      const tmpL=state.L; state.L=state.R; state.R=tmpL;
+      const tServe = state.serveTag.L; state.serveTag.L = state.serveTag.R; state.serveTag.R = tServe;
+      render();
+    });
+
+    // SETTINGS PANEL
+    function rgbToHex(rgb){
+      if(!rgb) return '#000000';
+      const re = new RegExp('rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)', 'i');
+      const res = rgb.match(re);
+      if(!res) return rgb;
+      const r = Number(res[1]).toString(16).padStart(2,'0');
+      const g = Number(res[2]).toString(16).padStart(2,'0');
+      const b = Number(res[3]).toString(16).padStart(2,'0');
+      return `#${r}${g}${b}`;
+    }
+    function openSettings(){
+$('scoreFontSize').value=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--scoreFontSize'))||80;
+$('playerFontSize').value=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--playerFontSize'))||28;
+$('timerFontSize').value=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--timerFontSize'))||24;
+$('serveFontSize').value=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--serveFontSize'))||20;
+$('buttonsFontSize').value=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--buttonsFontSize'))||16;
+$('winnerFontSize').value=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--winnerFontSize'))||32;
+
+      $('settingsModal').style.display='flex';
+      const cs=getComputedStyle(document.documentElement);
+      $('bgColor').value=rgbToHex(cs.getPropertyValue('--bg').trim()||'#000');
+      $('boxColor').value=rgbToHex(cs.getPropertyValue('--panel').trim()||'#fff');
+      $('textColor').value=rgbToHex(cs.getPropertyValue('--text').trim()||'#fff');
+      render();
+      fitAllScores();
+      $('winPoints').value = String(WIN_POINTS);
+
+  $('serveColor').value=rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--serveText').trim()||'#fff');
+  $('timeLabelColor').value=rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--timeLabelText').trim()||'#fff');
+  $('timerColor').value=rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--timerText').trim()||'#fff');
+  $('timerBgColor').value=rgbToHex(getComputedStyle(document.documentElement).getPropertyValue('--timerBg').trim()||'#000');
+}
+    function closeSettings(){ $('settingsModal').style.display='none'; }
+    on($('btnSettings'),'pointerdown',openSettings);
+    on($('closeBtn'),'pointerdown',closeSettings);
+    on($('applyBtn'),'pointerdown',()=>{
+document.documentElement.style.setProperty('--scoreFontSize', $('scoreFontSize').value + 'px');
+document.documentElement.style.setProperty('--playerFontSize', $('playerFontSize').value + 'px');
+document.documentElement.style.setProperty('--timerFontSize', $('timerFontSize').value + 'px');
+document.documentElement.style.setProperty('--serveFontSize', $('serveFontSize').value + 'px');
+document.documentElement.style.setProperty('--buttonsFontSize', $('buttonsFontSize').value + 'px');
+document.documentElement.style.setProperty('--winnerFontSize', $('winnerFontSize').value + 'px');
+
+      document.documentElement.style.setProperty('--bg', $('bgColor').value);
+      document.documentElement.style.setProperty('--panel', $('boxColor').value);
+      document.documentElement.style.setProperty('--text', $('textColor').value);
+      document.documentElement.style.setProperty('--ink', $('textColor').value);
+      $('p1').value=$('name1').value; $('p2').value=$('name2').value; $('p3').value=$('name3').value; $('p4').value=$('name4').value;
+      const cfg={bg:$('bgColor').value,panel:$('boxColor').value,text:$('textColor').value,names:[$('p1').value,$('p2').value,$('p3').value,$('p4').value],serveText:$('serveColor').value,timeLabelText:$('timeLabelColor').value,timerText:$('timerColor').value,timerBg:$('timerBgColor').value,scoreFontSize:$('scoreFontSize').value,playerFontSize:$('playerFontSize').value,timerFontSize:$('timerFontSize').value,serveFontSize:$('serveFontSize').value,buttonsFontSize:$('buttonsFontSize').value,winnerFontSize:$('winnerFontSize').value};
+      localStorage.setItem('bdm_cfg',JSON.stringify(cfg));
+      
+      WIN_POINTS = parseInt($('winPoints').value,10);
+      localStorage.setItem('bdm_win_points', String(WIN_POINTS));
+      closeSettings(); render(); fitAllScores();
+    });
+    on($('defaultsBtn'),'pointerdown',()=>{
+$('scoreFontSize').value=80;
+$('playerFontSize').value=28;
+$('timerFontSize').value=24;
+$('serveFontSize').value=20;
+$('buttonsFontSize').value=16;
+$('winnerFontSize').value=32;
+ $('bgColor').value='#000000'; $('boxColor').value='#ffffff'; $('textColor').value='#ffffff'; 
+  $('serveColor').value='#ffffff';
+  $('timeLabelColor').value='#ffffff';
+  $('timerColor').value='#ffffff';
+  $('timerBgColor').value='#000000';
+});
+
+    // Load saved config (if any)
+    
+(function(){
+  const s = localStorage.getItem('bdm_cfg'); if(!s) return;
+  try{
+    const cfg = JSON.parse(s);
+    // Base colors
+    document.documentElement.style.setProperty('--bg', cfg.bg || '#000');
+    document.documentElement.style.setProperty('--panel', cfg.panel || '#fff');
+    document.documentElement.style.setProperty('--text', cfg.text || '#fff');
+    document.documentElement.style.setProperty('--ink', cfg.text || '#fff');
+
+    // Extended colors (if present)
+    if(cfg.serveText) document.documentElement.style.setProperty('--serveText', cfg.serveText);
+    if(cfg.timeLabelText) document.documentElement.style.setProperty('--timeLabelText', cfg.timeLabelText);
+    if(cfg.timerText) document.documentElement.style.setProperty('--timerText', cfg.timerText);
+    if(cfg.timerBg) document.documentElement.style.setProperty('--timerBg', cfg.timerBg);
+
+    // Font sizes (append px)
+    if(cfg.scoreFontSize) document.documentElement.style.setProperty('--scoreFontSize', cfg.scoreFontSize + 'px');
+    if(cfg.playerFontSize) document.documentElement.style.setProperty('--playerFontSize', cfg.playerFontSize + 'px');
+    if(cfg.timerFontSize) document.documentElement.style.setProperty('--timerFontSize', cfg.timerFontSize + 'px');
+    if(cfg.serveFontSize) document.documentElement.style.setProperty('--serveFontSize', cfg.serveFontSize + 'px');
+    if(cfg.buttonsFontSize) document.documentElement.style.setProperty('--buttonsFontSize', cfg.buttonsFontSize + 'px');
+    if(cfg.winnerFontSize) document.documentElement.style.setProperty('--winnerFontSize', cfg.winnerFontSize + 'px');
+
+    // Names
+    const n = cfg.names || [];
+    if(n[0]) $('p1').value = n[0];
+    if(n[1]) $('p2').value = n[1];
+    if(n[2]) $('p3').value = n[2];
+    if(n[3]) $('p4').value = n[3];
+  }catch(e){}
+})();
+
+
+    // Tests
+    function assert(name, cond){ (cond?console.log:console.error)(`${cond?'OK':'FAIL'}: ${name}`); }
+    function runTests(){
+      const backupL = state.serveTag.L, backupR = state.serveTag.R;
+      state.serveTag.L='1st'; state.serveTag.R='-'; cycleServeTag('L'); assert('serve L 1st→2nd', state.serveTag.L==='2nd' && state.serveTag.R==='-');
+      cycleServeTag('R'); assert('serve R -→1st and L→-', state.serveTag.R==='1st' && state.serveTag.L==='-');
+      cycleServeTag('R'); assert('serve R 1st→2nd keeps L -', state.serveTag.R==='2nd' && state.serveTag.L==='-');
+      cycleServeTag('R'); assert('serve R 2nd→- (both - ok)', state.serveTag.R==='-' );
+      state.serveTag.L=backupL; state.serveTag.R=backupR;
+      assert('format 0ms', (function(){return (function f(t){const s=Math.floor(t/1000);return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}.${String(Math.floor((t%1000)/10)).padStart(2,'0')}`;})(0)==='00:00.00'})());
+    }
+    render(); fitAllScores(); runTests();
+  </script>
+
+<script>
+window.addEventListener('load', function(){
+  try{
+    var Lc=document.getElementById('scoreL'), Ls=document.getElementById('scoreLVal');
+    var Rc=document.getElementById('scoreR'), Rs=document.getElementById('scoreRVal');
+    if(typeof fitScore==='function'){ fitScore(Lc,Ls); fitScore(Rc,Rs); }
+  }catch(e){}
+});
+</script>
+
+
+  <!-- WINNER MODAL -->
+  <div class="winnerModal" id="winnerModal" style="display:none">
+    <div class="winnerBackdrop" id="winnerBackdrop"></div>
+    <div class="winnerCard">
+      <div class="crownWrap" aria-hidden="true">
+        <!-- Gold Crown Icon -->
+        <svg class="crown" viewBox="0 0 64 64" width="72" height="72">
+          <path fill="#FFD54A" d="M6 22l10 10 8-16 8 16 8-16 8 16 10-10v28H6z"/>
+          <rect x="10" y="46" width="44" height="8" rx="2" fill="#F4C842"/>
+          <circle cx="16" cy="22" r="3" fill="#FFE680"/>
+          <circle cx="32" cy="14" r="3" fill="#FFE680"/>
+          <circle cx="48" cy="22" r="3" fill="#FFE680"/>
+        </svg>
+      </div>
+      <h2 class="winnerTitle">Winner</h2>
+      <div class="winnerName" id="winnerName">PLAYER</div>
+      <div class="winnerActions">
+        <button id="winnerClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+(function(){
+  function showWinner(name){
+    const modal = document.getElementById('winnerModal');
+    const nameEl = document.getElementById('winnerName');
+    if(!modal || !nameEl) return;
+    nameEl.textContent = name || 'Winner';
+    modal.style.display = 'flex';
+  }
+  function hideWinner(){
+    const modal = document.getElementById('winnerModal');
+    if(modal) modal.style.display = 'none';
+  }
+  const wb = document.getElementById('winnerBackdrop');
+  const wc = document.getElementById('winnerClose');
+  if(wb){ wb.addEventListener('pointerdown', hideWinner); }
+  if(wc){ wc.addEventListener('pointerdown', hideWinner); }
+
+  // Patch render to trigger winner popup once
+  const _render = window.render;
+  window.render = function(){
+    _render && _render();
+    try{
+      const ps = [ document.getElementById('p1').value, document.getElementById('p2').value,
+                   document.getElementById('p3').value, document.getElementById('p4').value ];
+      const leftName = (ps[0]||'PLAYER 1') + (ps[1] ? ' & ' + ps[1] : '');
+      const rightName = (ps[2]||'PLAYER 3') + (ps[3] ? ' & ' + ps[3] : '');
+      if(!winnerShown){
+        if(typeof WIN_POINTS !== 'undefined'){
+          if(state.L >= WIN_POINTS){
+            winnerShown = true; showWinner(leftName);
+          }else if(state.R >= WIN_POINTS){
+            winnerShown = true; showWinner(rightName);
+          }
+        }
+      }else{
+        // If scores drop below target, allow popup again later (optional behavior)
+        if((state.L < WIN_POINTS) && (state.R < WIN_POINTS)){
+          winnerShown = false;
+        }
+      }
+    }catch(e){}
+  };
+})();
+</script>
+
+<script>
+// === Live preview for color pickers ===
+['bgColor','boxColor','textColor','serveColor','timeLabelColor','timerColor','timerBgColor'].forEach(id=>{
+  const el=$(id);
+  if(el){
+    el.addEventListener('input',()=>{
+      if(id==='bgColor') document.documentElement.style.setProperty('--bg', el.value);
+      if(id==='boxColor') document.documentElement.style.setProperty('--panel', el.value);
+      if(id==='textColor') document.documentElement.style.setProperty('--text', el.value);
+      if(id==='serveColor') document.documentElement.style.setProperty('--serveText', el.value);
+      if(id==='timeLabelColor') document.documentElement.style.setProperty('--timeLabelText', el.value);
+      if(id==='timerColor') document.documentElement.style.setProperty('--timerText', el.value);
+      if(id==='timerBgColor') document.documentElement.style.setProperty('--timerBg', el.value);
+    });
+  }
+});
+
+// === Live preview for font size ===
+['scoreFontSize','playerFontSize','timerFontSize','serveFontSize','buttonsFontSize','winnerFontSize'].forEach(id=>{
+  const el=$(id);
+  if(el){
+    el.addEventListener('input',()=>{
+      document.documentElement.style.setProperty('--'+id, el.value + 'px');
+    });
+  }
+});
+</script>
+<script>
+// ===== Export / Import Settings =====
+function buildConfigObject(){
+  // Build the exact cfg object we store on Apply + include winPoints
+  const cfg = {
+    bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#000000',
+    panel: getComputedStyle(document.documentElement).getPropertyValue('--panel').trim() || '#ffffff',
+    text: getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#ffffff',
+    names: [ $('p1').value, $('p2').value, $('p3').value, $('p4').value ],
+    // Extended colors
+    serveText: getComputedStyle(document.documentElement).getPropertyValue('--serveText').trim() || '#ffffff',
+    timeLabelText: getComputedStyle(document.documentElement).getPropertyValue('--timeLabelText').trim() || '#ffffff',
+    timerText: getComputedStyle(document.documentElement).getPropertyValue('--timerText').trim() || '#ffffff',
+    timerBg: getComputedStyle(document.documentElement).getPropertyValue('--timerBg').trim() || '#000000',
+    // Font sizes (strip px if present)
+    scoreFontSize: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--scoreFontSize')) || 80,
+    playerFontSize: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--playerFontSize')) || 28,
+    timerFontSize: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--timerFontSize')) || 24,
+    serveFontSize: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--serveFontSize')) || 20,
+    buttonsFontSize: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--buttonsFontSize')) || 16,
+    winnerFontSize: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--winnerFontSize')) || 32,
+    // Win points
+    winPoints: (function(){ try{ return parseInt(localStorage.getItem('bdm_win_points')||'21',10);}catch(e){return 21;} })()
+  };
+  return cfg;
+}
+
+function exportSettings(){
+  try{
+    const cfg = buildConfigObject();
+    const blob = new Blob([JSON.stringify(cfg, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const dt = new Date();
+    const ts = dt.toISOString().replace(/[:.]/g,'-');
+    a.download = `scoreboard-settings-${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+  }catch(e){
+    alert('Failed to export settings.');
+    console.error(e);
+  }
+}
+
+function applyConfigToUI(cfg){
+  // Colors
+  if(cfg.bg) document.documentElement.style.setProperty('--bg', cfg.bg);
+  if(cfg.panel) document.documentElement.style.setProperty('--panel', cfg.panel);
+  if(cfg.text){ 
+    document.documentElement.style.setProperty('--text', cfg.text);
+    document.documentElement.style.setProperty('--ink', cfg.text);
+  }
+  if(cfg.serveText) document.documentElement.style.setProperty('--serveText', cfg.serveText);
+  if(cfg.timeLabelText) document.documentElement.style.setProperty('--timeLabelText', cfg.timeLabelText);
+  if(cfg.timerText) document.documentElement.style.setProperty('--timerText', cfg.timerText);
+  if(cfg.timerBg) document.documentElement.style.setProperty('--timerBg', cfg.timerBg);
+
+  // Names
+  const n = cfg.names || [];
+  if(n[0]!==undefined) $('p1').value = n[0];
+  if(n[1]!==undefined) $('p2').value = n[1];
+  if(n[2]!==undefined) $('p3').value = n[2];
+  if(n[3]!==undefined) $('p4').value = n[3];
+
+  // Font sizes (append px)
+  if(cfg.scoreFontSize) document.documentElement.style.setProperty('--scoreFontSize', cfg.scoreFontSize + 'px');
+  if(cfg.playerFontSize) document.documentElement.style.setProperty('--playerFontSize', cfg.playerFontSize + 'px');
+  if(cfg.timerFontSize) document.documentElement.style.setProperty('--timerFontSize', cfg.timerFontSize + 'px');
+  if(cfg.serveFontSize) document.documentElement.style.setProperty('--serveFontSize', cfg.serveFontSize + 'px');
+  if(cfg.buttonsFontSize) document.documentElement.style.setProperty('--buttonsFontSize', cfg.buttonsFontSize + 'px');
+  if(cfg.winnerFontSize) document.documentElement.style.setProperty('--winnerFontSize', cfg.winnerFontSize + 'px');
+
+  // Win points
+  if(cfg.winPoints){
+    try{
+      localStorage.setItem('bdm_win_points', String(cfg.winPoints));
+      if($('winPoints')) $('winPoints').value = String(cfg.winPoints);
+      if(typeof WIN_POINTS !== 'undefined') WIN_POINTS = parseInt(cfg.winPoints,10);
+    }catch(e){}
+  }
+}
+
+function saveConfig(cfg){
+  try{
+    localStorage.setItem('bdm_cfg', JSON.stringify(cfg));
+  }catch(e){
+    console.error('Failed to save bdm_cfg', e);
+  }
+}
+
+function importSettingsFromFile(file){
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const cfg = JSON.parse(ev.target.result);
+      applyConfigToUI(cfg);
+      saveConfig(cfg);
+      render(); fitAllScores();
+      alert('Settings imported.');
+    }catch(e){
+      alert('Failed to import: invalid JSON.');
+      console.error(e);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Bind buttons
+(function(){
+  const expBtn = document.getElementById('exportBtn');
+  const impBtn = document.getElementById('importBtn');
+  const fileIn = document.getElementById('importFile');
+  if(expBtn) expBtn.addEventListener('pointerdown', exportSettings);
+  if(impBtn) impBtn.addEventListener('pointerdown', ()=> fileIn && fileIn.click());
+  if(fileIn) fileIn.addEventListener('change', (e)=>{
+    if(e.target.files && e.target.files[0]) importSettingsFromFile(e.target.files[0]);
+    e.target.value = ''; // reset for next import
+  });
+})();
+</script>
+
+<script>
+// Register Service Worker (only over HTTPS or localhost)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    const swUrl = './sw.js';
+    navigator.serviceWorker.register(swUrl).catch(console.error);
+  });
+}
+</script>
+
+
+<script>
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const btn = document.getElementById('installBtn');
+  if(btn) btn.style.display = 'inline-block';
+});
+
+function installPWA(){
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.finally(() => {
+    const btn = document.getElementById('installBtn');
+    if(btn) btn.style.display = 'none';
+    deferredPrompt = null;
+  });
+}
+</script>
+
+</body>
+</html>
